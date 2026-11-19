@@ -76,8 +76,10 @@ if canal:
 # =============================================================================
 st.title("Qualité du référentiel TVA")
 # TODO AIDE (étape 6a) : une phrase d'aide pour la directrice financière (st.write).
+st.write("Ce tableau de bord représente le travail de nettoyage des données de numéros TVA. Il met en évidence les numéros non traités et indique automatiquement quelles mesures prendre pour les numéros non traités. Il appose des filtres de manière dynamique.")
 # TODO DATE_REGLE (étape 6b) : la date de la dernière vérification VIES et la règle pour les non tranchés (st.info).
-
+derniere = df["date_verification"].max() 
+st.info(f"Dernière vérification VIES : {derniere:%d/%m/%Y à %H:%M}. Règle : un numéro non tranché ne doit pas être facturé hors taxe tant qu'il n'a pas été revérifié.")
 # =============================================================================
 # ÉTAPE 1 — Les quatre chiffres clés
 # =============================================================================
