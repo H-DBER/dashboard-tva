@@ -15,8 +15,22 @@ import numpy as np
 import plotly.express as px  # noqa: F401 — servira aux étapes 2 et 4, ne pas supprimer
 import streamlit as st
 
-st.set_page_config(page_title="Référentiel TVA", layout="wide")
+st.set_page_config(page_title="Référentiel TVA", layout="wide", page_icon="🦝")
 
+st.markdown(
+    """
+<style>
+[data-testid="stMetric"] {
+    background-color: #1e2127;
+    border: 1px solid #2e323b;
+    padding: 15px 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 # Déjà écrit pour vous. @st.cache_data évite de relire le fichier à chaque clic.
 @st.cache_data
@@ -75,7 +89,7 @@ if canal:
 # =============================================================================
 # ÉTAPE 6 — Rendre la page lisible par tous (à faire APRÈS l'étape 5)
 # =============================================================================
-st.title("Qualité du référentiel TVA")
+st.title("🔍 Qualité du référentiel TVA")
 # TODO AIDE (étape 6a) : une phrase d'aide pour la directrice financière (st.write).
 st.write("Ce tableau de bord représente le travail de nettoyage des données de numéros TVA. Il met en évidence les numéros non traités et indique automatiquement quelles mesures prendre pour les numéros non traités. Il appose des filtres de manière dynamique.")
 # TODO DATE_REGLE (étape 6b) : la date de la dernière vérification VIES et la règle pour les non tranchés (st.info).
@@ -84,6 +98,7 @@ st.info(f"Dernière vérification VIES : {derniere:%d/%m/%Y à %H:%M}. Règle : 
 # =============================================================================
 # ÉTAPE 1 — Les quatre chiffres clés
 # =============================================================================
+
 total = len(selection)
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Numéros", total)
@@ -119,7 +134,8 @@ with tab1:
 			total - absents - doublons - structure],
 	})
 	fig = px.funnel(entonnoir, x="numéros", y="étape", 
-		title="Du référentiel aux numéros envoyés à VIES")
+		title="Du référentiel aux numéros envoyés à VIES",
+		color_discrete_sequence=["#884D15FF"])
 	st.plotly_chart(fig)
 
 # =============================================================================
@@ -132,14 +148,21 @@ with tab2:
 	#          puis une phrase (st.caption) qui explique quel canal sort du lot.
 	taux = taux_invalides(selection, "source_saisie") 
 	fig = px.bar(taux, x="taux d'erreur (%)", y="source_saisie", orientation="h",
-		text="taux d'erreur (%)", title="Part de numéros invalides par canal de saisie") 
+		text="taux d'erreur (%)", title="Part de numéros invalides par canal de saisie", 
+		color_discrete_sequence=["#859400"]) 
 	st.plotly_chart(fig)
 	st.caption("La source saisie correspond au canal d'origine du client. La plus grande marge d'erreur correspond à le reprise ERP.")
 
 	taux = taux_invalides(selection, "pays_declare") 
 	fig = px.bar(taux, x="taux d'erreur (%)", y="pays_declare", orientation="h",
-		text="taux d'erreur (%)", title="Part de numéros invalides par pays déclaré") 
+		text="taux d'erreur (%)", title="Part de numéros invalides par pays déclaré", 
+		color_discrete_sequence=["#423353"]) 
+	fig.update_traces(
+    textfont=dict(size=18), textposition="outside", texttemplate="%{text:.1f} %"
+	)
+	fig.update_layout(xaxis=dict(range=[0, taux["taux d'erreur (%)"].max() * 1.15]))
 	st.plotly_chart(fig)
+
 
 with tab3:
 	toutes_donnees = selection["temps_reponse_ms"].dropna()
@@ -256,32 +279,32 @@ with tab4:
 	st.plotly_chart(fig_pays, use_container_width=True)
 	st.caption("L'italie manifeste de loin le plus grand nombre de numéros non tranchés, pour lesquels il faut prendre une décision") 
            
-# =============================================================================
-# ÉTAPE 5 — Les numéros à traiter
-# =============================================================================
-st.subheader("Numéros à traiter")
-# TODO A_TRAITER (étape 5) : la liste des invalides et des non tranchés, avec une colonne « action »,
-#          et un bouton pour la télécharger.
-# 1. Garder les lignes dont le statut n'est pas "valide" (!= veut dire « différent de ») 
-a_traiter = selection[selection["statut"] != "valide"].copy() 
+	# =============================================================================
+	# ÉTAPE 5 — Les numéros à traiter
+	# =============================================================================
+	st.subheader("Numéros à traiter")
+	# TODO A_TRAITER (étape 5) : la liste des invalides et des non tranchés, avec une colonne « action »,
+	#          et un bouton pour la télécharger.
+	# 1. Garder les lignes dont le statut n'est pas "valide" (!= veut dire « différent de ») 
+	a_traiter = selection[selection["statut"] != "valide"].copy() 
 
-# 2. Ajouter une colonne "action" : .map remplace chaque statut par le texte associé 
-a_traiter["action"] = a_traiter["statut"].map({ 
-	"invalide": "Demander un nouveau numéro au client",
-	"non_tranche": "Revérifier sur VIES avant la prochaine facture", 
-}) 
+	# 2. Ajouter une colonne "action" : .map remplace chaque statut par le texte associé 
+	a_traiter["action"] = a_traiter["statut"].map({ 
+		"invalide": "Demander un nouveau numéro au client",
+		"non_tranche": "Revérifier sur VIES avant la prochaine facture", 
+	}) 
 
-# 3. Afficher le nombre et le tableau, avec les colonnes utiles pour la comptabilité 
-colonnes = ["raison_sociale", "numero_saisi", "pays_declare", "statut", "motif", "action"] 
-st.write(f"{len(a_traiter)} numéros demandent une action.")
-st.dataframe(a_traiter[colonnes], hide_index=True) 
- 
-# 4. Le bouton de téléchargement 
-st.download_button( 
-	"Télécharger la liste", 
-	a_traiter[colonnes].to_csv(index=False, sep=";").encode("utf-8-sig"), 
-	file_name="numeros_a_traiter.csv", 
-)
-# Déjà écrit : les données brutes, cachées par défaut.
-with st.expander("Voir toutes les données"):
-    st.dataframe(selection, hide_index=True)
+	# 3. Afficher le nombre et le tableau, avec les colonnes utiles pour la comptabilité 
+	colonnes = ["raison_sociale", "numero_saisi", "pays_declare", "statut", "motif", "action"] 
+	st.write(f"{len(a_traiter)} numéros demandent une action.")
+	st.dataframe(a_traiter[colonnes], hide_index=True) 
+	
+	# 4. Le bouton de téléchargement 
+	st.download_button( 
+		"Télécharger la liste", 
+		a_traiter[colonnes].to_csv(index=False, sep=";").encode("utf-8-sig"), 
+		file_name="numeros_a_traiter.csv", 
+	)
+	# Déjà écrit : les données brutes, cachées par défaut.
+	with st.expander("Voir toutes les données"):
+		st.dataframe(selection, hide_index=True)
